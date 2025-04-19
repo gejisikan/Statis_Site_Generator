@@ -3,7 +3,8 @@ import unittest
 from textnode import TextNode, TextType
 from htmlnode import HTMLNode, LeafNode, ParentNode
 
-from to_node import text_node_to_html_node, split_nodes_delimiter, extract_markdown_images, extract_markdown_links, split_nodes_image, split_nodes_link, text_to_textnodes
+from to_node import text_node_to_html_node, split_nodes_delimiter, extract_markdown_images, extract_markdown_links, split_nodes_image, split_nodes_link, text_to_textnodes, markdown_to_blocks, markdown_to_html_node
+from block import block_to_block_type, BlockType
 
 class testTextNodeToHtmlNode(unittest.TestCase):
     
@@ -106,7 +107,129 @@ class testTextNodeToHtmlNode(unittest.TestCase):
             node_list,
         )    
     
+    def test_markdown_to_blocks(self):
+        md = """
+            This is **bolded** paragraph
 
+            This is another paragraph with _italic_ text and `code` here
+            This is the same paragraph on a new line
+
+            - This is a list
+            - with items
+            """
+        blocks = markdown_to_blocks(md)
+        self.assertEqual(
+            blocks,
+            [
+                "This is **bolded** paragraph",
+                "This is another paragraph with _italic_ text and `code` here\nThis is the same paragraph on a new line",
+                "- This is a list\n- with items",
+            ],
+        )
+
+    def test_block_to_block_type_is_heading(self):
+        md1 = "# title"
+        md2 = "## title"
+        md3 = "### title"
+        md4 = "#### title"
+        md5 = "##### title"
+        md6 = "###### title"
+        md7 = "####### title"
+        md_not = "#title"
+
+        self.assertEqual(block_to_block_type(md1), BlockType.HEADING)
+        self.assertEqual(block_to_block_type(md2), BlockType.HEADING)
+        self.assertEqual(block_to_block_type(md3), BlockType.HEADING)
+        self.assertEqual(block_to_block_type(md4), BlockType.HEADING)
+        self.assertEqual(block_to_block_type(md5), BlockType.HEADING)
+        self.assertEqual(block_to_block_type(md6), BlockType.HEADING)
+        self.assertEqual(block_to_block_type(md7), BlockType.PARAGRAP)
+        self.assertEqual(block_to_block_type(md_not), BlockType.PARAGRAP)
+
+    def test_block_to_block_type_is_code(self):
+        md1 = "```code```"
+        md2 = "``` code ```"
+        md_not1 = "```code"
+        md_not2 = "code```"
+
+
+        self.assertEqual(block_to_block_type(md1), BlockType.CODE)
+        self.assertEqual(block_to_block_type(md2), BlockType.CODE)
+        self.assertEqual(block_to_block_type(md_not1), BlockType.PARAGRAP)
+        self.assertEqual(block_to_block_type(md_not2), BlockType.PARAGRAP)
+
+    def test_block_to_block_type_is_quote(self):
+        md1 = ">quote\n>quote"
+        md2 = ">quote"
+        md_not1 = "quote\n>quote"
+        md_not2 = ">quote\nquote"
+
+
+        self.assertEqual(block_to_block_type(md1), BlockType.QUOTE)
+        self.assertEqual(block_to_block_type(md2), BlockType.QUOTE)
+        self.assertEqual(block_to_block_type(md_not1), BlockType.PARAGRAP)
+        self.assertEqual(block_to_block_type(md_not2), BlockType.PARAGRAP)
+
+    def test_block_to_block_type_is_unordered_list(self):
+        md1 = "- unordered_list\n- unordered_list"
+        md2 = "- unordered_list"
+        md_not1 = "- unordered_list\n-unordered_list"
+        md_not2 = "-unordered_list\n- unordered_list"
+
+
+        self.assertEqual(block_to_block_type(md1), BlockType.UNORDERED_LIST)
+        self.assertEqual(block_to_block_type(md2), BlockType.UNORDERED_LIST)
+        self.assertEqual(block_to_block_type(md_not1), BlockType.PARAGRAP)
+        self.assertEqual(block_to_block_type(md_not2), BlockType.PARAGRAP)
+
+    def test_block_to_block_type_is_ordered_list(self):
+        md1 = "1. ordered_list\n2. ordered_list"
+        md2 = "1. ordered_list"
+        md_not1 = "1. ordered_list\n2.ordered_list"
+        md_not2 = "1.ordered_list\n2. ordered_list"
+        md_not3 = "2. ordered_list\n1. ordered_list"
+        md_not4 = "1. ordered_list\n1. ordered_list"
+
+
+        self.assertEqual(block_to_block_type(md1), BlockType.ORDERED_LIST)
+        self.assertEqual(block_to_block_type(md2), BlockType.ORDERED_LIST)
+        self.assertEqual(block_to_block_type(md_not1), BlockType.PARAGRAP)
+        self.assertEqual(block_to_block_type(md_not2), BlockType.PARAGRAP)
+        self.assertEqual(block_to_block_type(md_not3), BlockType.PARAGRAP)
+        self.assertEqual(block_to_block_type(md_not4), BlockType.PARAGRAP)
+
+
+    def test_paragraphs(self):
+        md = """
+    This is **bolded** paragraph
+    text in a p
+    tag here
+
+    This is another paragraph with _italic_ text and `code` here
+
+    """
+
+        node = markdown_to_html_node(md)
+        html = node.to_html()
+        self.assertEqual(
+            html,
+            "<div><p>This is <b>bolded</b> paragraph text in a p tag here</p><p>This is another paragraph with <i>italic</i> text and <code>code</code> here</p></div>",
+        )
+
+    def test_codeblock(self):
+        md = """
+    ```
+    This is text that _should_ remain
+    the **same** even with inline stuff
+    ```
+    """
+
+        node = markdown_to_html_node(md)
+        html = node.to_html()
+        self.assertEqual(
+            html,
+            "<div><pre><code>This is text that _should_ remain\nthe **same** even with inline stuff\n</code></pre></div>",
+        )
 
 if __name__ == "__main__":
     unittest.main()

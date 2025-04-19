@@ -1,5 +1,7 @@
 from textnode import TextNode, TextType
 from htmlnode import HTMLNode, LeafNode, ParentNode
+from block import BlockType, block_to_block_type
+
 import re
 
 re_image = r"!\[(.+?)\]\((https?://[^\s)]+)\)"
@@ -19,7 +21,7 @@ def text_node_to_html_node(text_node):
         case TextType.LINK:
             props = {"href":text_node.url}
             return LeafNode("a", text_node.text, props)
-        case TextType.IMAGES:
+        case TextType.IMAGE:
             props = {"src":text_node.text,
                      "url":text_node.url
                      }
@@ -117,3 +119,69 @@ def text_to_textnodes(text):
                 split_nodes_delimiter(
                     split_nodes_delimiter([node], "`", TextType.CODE), "_", TextType.ITALIC), "**", TextType.BOLD)
         ))
+
+def markdown_to_blocks(markdown):
+    result = []
+    blok_list = markdown.split("\n\n")
+    
+    for blok in blok_list:
+        blok = blok.strip()
+        if blok == "":
+            continue
+
+        blok = blok.split("\n")
+        temp = []
+        for item in blok:
+            item = item.strip()
+            if item == "":
+                continue
+            temp.append(item)
+        result.append("\n".join(temp))
+    return result
+
+def markdown_to_html_node(markdown):
+    blocks = markdown_to_blocks(markdown)
+    html_node_div = ParentNode("div", [])
+
+    for block in blocks:
+        match block_to_block_type(block):
+            case BlockType.PARAGRAP:
+                block = block.replace("\n", " ")
+                values = text_to_textnodes(block)
+                html_node_div.children.append(ParentNode("p", list(map(text_node_to_html_node, values))))
+            case BlockType.CODE:
+                if block[3] == "\n":
+                    block = block[4:-3]
+                else:
+                    block = block[3:-3]
+                html_node_div.children.append(ParentNode("pre", [ParentNode("code", [text_node_to_html_node(TextNode(block, TextType.TEXT))])]))
+            case BlockType.HEADING:
+                count = 0
+                for char in block:
+                    if char == "#":
+                        count += 1
+                    else:
+                        break
+                values = text_to_textnodes(block[count + 1:])
+                html_node_div.children.append(ParentNode(f"h{count}", list(map(text_node_to_html_node, values))))
+            case BlockType.QUOTE:
+                temp = block.split("\n")
+                for i in range(len(temp)):
+                    temp[i] == temp[i][1:]
+                values = text_to_textnodes("\n".join(temp))
+                html_node_div.children.append(ParentNode("blockquote", list(map(text_node_to_html_node, values))))
+            case BlockType.UNORDERED_LIST:
+                values = ParentNode("ul", [])
+                temp = block.split("\n")
+                for value in temp:
+                    values.children.append(ParentNode("li", list(map(text_node_to_html_node, text_to_textnodes(value[2:])))))
+                html_node_div.children.append(ParentNode("blockquote", values))
+            case BlockType.ORDERED_LIST:
+                values = ParentNode("ol", [])
+                temp = block.split("\n")
+                for value in temp:
+                    values.children.append(ParentNode("li", list(map(text_node_to_html_node, text_to_textnodes(value[3:])))))
+                html_node_div.children.append(ParentNode("blockquote", values))
+    
+    return html_node_div
+
