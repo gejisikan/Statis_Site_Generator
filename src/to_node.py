@@ -125,10 +125,6 @@ def markdown_to_blocks(markdown):
     blok_list = markdown.split("\n\n")
     
     for blok in blok_list:
-        blok = blok.strip()
-        if blok == "":
-            continue
-
         blok = blok.split("\n")
         temp = []
         for item in blok:
@@ -136,7 +132,8 @@ def markdown_to_blocks(markdown):
             if item == "":
                 continue
             temp.append(item)
-        result.append("\n".join(temp))
+        if len(temp) != 0:
+            result.append("\n".join(temp))
     return result
 
 def markdown_to_html_node(markdown):
