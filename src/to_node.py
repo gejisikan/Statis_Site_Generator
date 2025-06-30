@@ -1,11 +1,11 @@
 from textnode import TextNode, TextType
-from htmlnode import HTMLNode, LeafNode, ParentNode
+from htmlnode import LeafNode, ParentNode
 from block import BlockType, block_to_block_type
 
 import re
 
-re_image = r"!\[(.+?)\]\((https?://[^\s)]+)\)"
-re_link = r"[^!]?\[(.+?)\]\((https?://[^\s)]+)\)"
+re_image = r"!\[(.+?)\]\(([https?:/]?/[^\s)]+)\)"
+re_link = r"[^!]?\[(.+?)\]\(([https?:/]?/[^\s)]+)\)"
 
 
 def text_node_to_html_node(text_node):
@@ -62,18 +62,22 @@ def split_nodes_link(nodes):
             result.append(node)
             continue
 
-        target_text = re.sub(re_link, " ~~", node.text)
+        target_text = re.sub(re_link, "~~", node.text)
 
         old_text = ""
-        for text in target_text:
-            if text == "~" and old_text[-1] == "~":
-                result.append(TextNode(old_text[:-1], TextType.TEXT))
+        if target_text == "~~":
                 link = link_target.pop(0)
                 result.append(TextNode(link[0], TextType.LINK, link[1]))
-                old_text = ""
-                continue
+        else:
+            for text in target_text:
+                if text == "~" and old_text[-1] == "~":
+                    result.append(TextNode(old_text[:-1], TextType.TEXT))
+                    link = link_target.pop(0)
+                    result.append(TextNode(link[0], TextType.LINK, link[1]))
+                    old_text = ""
+                    continue
 
-            old_text += text
+                old_text += text
         if old_text != "":
             result.append(TextNode(old_text, TextType.TEXT))
     return result
@@ -91,13 +95,17 @@ def split_nodes_image(nodes):
         target_text = re.sub(re_image, "~~", node.text)
 
         old_text = ""
-        for text in target_text:
-            if text == "~" and old_text[-1] == "~":
-                result.append(TextNode(old_text[:-1], TextType.TEXT))
-                image = image_target.pop(0)
-                result.append(TextNode(image[0], TextType.IMAGE, image[1]))
-                old_text = ""
-                continue
+        if target_text == "~~":
+            image = image_target.pop(0)
+            result.append(TextNode(image[0], TextType.IMAGE, image[1]))
+        else:
+            for text in target_text:
+                if text == "~" and old_text[-1] == "~":
+                    result.append(TextNode(old_text[:-1], TextType.TEXT))
+                    image = image_target.pop(0)
+                    result.append(TextNode(image[0], TextType.IMAGE, image[1]))
+                    old_text = ""
+                    continue
 
             old_text += text
         if old_text != "":
@@ -164,7 +172,7 @@ def markdown_to_html_node(markdown):
             case BlockType.QUOTE:
                 temp = block.split("\n")
                 for i in range(len(temp)):
-                    temp[i] == temp[i][1:]
+                    temp[i] = temp[i][2:]
                 values = text_to_textnodes("\n".join(temp))
                 html_node_div.children.append(ParentNode("blockquote", list(map(text_node_to_html_node, values))))
             case BlockType.UNORDERED_LIST:
@@ -172,13 +180,13 @@ def markdown_to_html_node(markdown):
                 temp = block.split("\n")
                 for value in temp:
                     values.children.append(ParentNode("li", list(map(text_node_to_html_node, text_to_textnodes(value[2:])))))
-                html_node_div.children.append(ParentNode("blockquote", values))
+                html_node_div.children.append(ParentNode("blockquote", [values]))
             case BlockType.ORDERED_LIST:
                 values = ParentNode("ol", [])
                 temp = block.split("\n")
                 for value in temp:
                     values.children.append(ParentNode("li", list(map(text_node_to_html_node, text_to_textnodes(value[3:])))))
-                html_node_div.children.append(ParentNode("blockquote", values))
+                html_node_div.children.append(ParentNode("blockquote", [values]))
     
     return html_node_div
 
